@@ -1,7 +1,6 @@
 import random
-from algos.utils import find_random_tile_with_id, create_empty_map, fill_walls, is_valid_tile
-from tile_data import T_WALL, T_GROUND
-from main import MAP_X, MAP_Y, update_screen
+from algos.utils import find_random_tile_with_id, create_empty_map, is_valid_tile
+from main import MAP_X, MAP_Y, update_screen, T_GROUND
 
 
 DEFAULT_NUM_WALKS = 50
@@ -12,7 +11,6 @@ def create_drunkard_map(
         num_walks=DEFAULT_NUM_WALKS,
         min_steps=DEFAULT_MIN_STEPS_PER_WALK,
         max_steps=DEFAULT_MAX_STEPS_PER_WALK,
-        diagonal_steps=False,
     ):
     new_map = create_empty_map()
 
@@ -41,7 +39,8 @@ def _gen_walk(gen_map, num_steps):
     if cur_pos_xy is not None:
         cur_x, cur_y = cur_pos_xy        
 
-        for i in range(num_steps):
+        # move around randomly for awhile
+        for _ in range(num_steps):
             dir = random.choice(
                 [
                     (0, -1),

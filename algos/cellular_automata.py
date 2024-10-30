@@ -1,8 +1,6 @@
-import random
 import time
-from algos.utils import get_adjacent_tiles, create_random_map, fill_walls, is_valid_tile
-from tile_data import T_GROUND, T_WALL
-from main import MAP_X, MAP_Y, update_screen
+from algos.utils import get_adjacent_tiles, create_random_map, is_valid_tile
+from main import update_screen, T_GROUND, T_WALL
 
 # ALIVE = WALL
 # DEAD = GROUND
@@ -43,13 +41,13 @@ def _step_generation(gen_map):
                     if orig_map[check_x][check_y] == T_WALL:
                         neighbour_wall_count += 1
 
-            # IS ALIVE
+            # if ALIVE
             if orig_map[i][j] == T_WALL:
                 if neighbour_wall_count < DEATH_LIMIT:
                     gen_map[i][j] = T_GROUND
                     changed_tiles.append((i,j))
 
-            # IS DEAD
+            # if DEAD
             elif orig_map[i][j] == T_GROUND:
                 if neighbour_wall_count > BIRTH_LIMIT:
                     gen_map[i][j] = T_WALL

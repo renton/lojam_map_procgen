@@ -1,15 +1,15 @@
 import random, time
 import itertools
-from tile_data import T_GROUND, T_WALL, TILE_DATA
-from main import MAP_X, MAP_Y, update_screen
+from collections import deque
+from main import MAP_X, MAP_Y, update_screen, T_WALL, T_GROUND
 
-def create_empty_map():
+def create_empty_map(tile_id=None):
     empty_map = []
 
     for x in range(MAP_X):
         empty_map.append([])
         for y in range(MAP_Y):
-            empty_map[x].append(None)
+            empty_map[x].append(tile_id)
 
     return empty_map
 
@@ -38,7 +38,7 @@ def find_random_tile_with_id(
 
     for i in range(len(search_map)):
         for j in range(len(search_map[i])):
-            if ((tile_id in TILE_DATA and (search_map[i][j] is not None) and search_map[i][j] == tile_id) or \
+            if (((search_map[i][j] is not None) and search_map[i][j] == tile_id) or \
                 (tile_id is None and search_map[i][j] is None)) and \
                 (i != 0) and (j != 0) and (i != MAP_X-1) and (j != MAP_Y-1):
 
@@ -120,6 +120,7 @@ def fix_connectivitiy(fix_map, tunnel_variablity=0):
         group_tiles = {}
         cur_group_id = gen_random_colour()
 
+        # explore the map from every point to classify the unconnected groups
         for x in range(len(fix_map)):
             for y in range(len(fix_map[x])):
                 explored_tiles = explore(
@@ -134,6 +135,7 @@ def fix_connectivitiy(fix_map, tunnel_variablity=0):
 
         update_screen(fix_map)
 
+        #  while there is more than one group, create a tunnel from group to another different group at random
         if len(group_tiles.keys()) > 1:
 
             group_a, group_b = random.sample(list(group_tiles.keys()), 2)
@@ -143,12 +145,12 @@ def fix_connectivitiy(fix_map, tunnel_variablity=0):
             make_tunnel(fix_map, group_a_tile, group_b_tile, group_a, rand_step_chance=tunnel_variablity)
             
             update_screen(fix_map)
-            time.sleep(1)
+            time.sleep(0.5)
 
-        # convert back to T_GROUND
+        # convert back to T_GROUND for visualization
         for x in range(len(fix_map)):
             for y in range(len(fix_map[x])):
-                if isinstance(fix_map[x][y], tuple):
+                if isinstance(fix_map[x][y], tuple) and fix_map[x][y] != T_WALL:
                     fix_map[x][y] = T_GROUND
 
 def make_tunnel(
@@ -163,10 +165,12 @@ def make_tunnel(
 
     count = 0
 
+    # keep tunneling until target tile is reached
     while ((cur_x, cur_y) != to_tile):
 
         fix_map[cur_x][cur_y] = marker
 
+        # random chance to step away from desired path
         if rand_step_chance > random.randint(0, 100):
             if random.randint(0, 1) == 0:
                 next_x = random.choice([cur_x+1, cur_x-1])
@@ -178,21 +182,30 @@ def make_tunnel(
                     cur_y = next_y
         else:
 
-            # X tunnel
+            # tunnel in x direction towards target
             if cur_x > to_tile[0]:
                 cur_x -= 1
             elif cur_x < to_tile[0]:
                 cur_x += 1
 
-            # Y tunnel
+            # tunnel in y direction towards target
             elif cur_y > to_tile[1]:
                 cur_y -= 1
             elif cur_y < to_tile[1]:
                 cur_y += 1
 
         count += 1
-        if count % 4 == 0:
-            update_screen(fix_map)
+        if count % 5 == 0:
+            update_screen(fix_map, highlight_tiles=[to_tile, from_tile])
+
+def shortest_path(apply_map):
+
+    start_pos = find_random_tile_with_id(apply_map, T_GROUND)
+    end_pos = find_random_tile_with_id(apply_map, T_GROUND)
+
+    bfs(apply_map, start_pos, [end_pos])
+
+    update_screen(apply_map, highlight_tiles=[start_pos, end_pos])
 
 def explore(explore_map, cur_x, cur_y, marker):
     to_explore_stack = []
@@ -205,18 +218,20 @@ def explore(explore_map, cur_x, cur_y, marker):
     
     steps = 0
 
+    # check to see if any tiles left in the explore stack
     while len(to_explore_stack):
         cur_x, cur_y = to_explore_stack.pop()
 
         if is_valid_tile(cur_x, cur_y):
             if explore_map[cur_x][cur_y] == T_GROUND:
+                # mark explored tiles with the group id
                 explore_map[cur_x][cur_y] = marker
                 explored_tiles.append((cur_x, cur_y))
                 for coords in get_neighbour_coords(cur_x, cur_y):
                     to_explore_stack.append(coords)
 
                 steps += 1
-                if steps % 50 == 0:
+                if steps % 70 == 0:
                     update_screen(explore_map)
 
     return explored_tiles
@@ -229,3 +244,38 @@ def get_neighbour_coords(x, y):
         (x, y-1),
         (x, y+1),
     ]
+
+def bfs(floor, start_xy, goals_xys, to_draw=True, walls=[None, T_WALL]):
+    queue = deque([[start_xy]])
+    seen = set([start_xy])
+    num_loops = 0
+
+    while queue:
+        path = queue.popleft()
+        x, y = path[-1]
+
+        if (x, y) in goals_xys:
+            path.pop(0) # remove first entry which is current pos
+            if to_draw:
+                update_screen(floor, highlight_tiles=[start_xy] + goals_xys + path)
+                time.sleep(2)
+            return path
+
+        # only check cardinal dirs
+        for x2, y2 in (
+            (x+1,y),
+            (x-1,y),
+            (x,y+1),
+            (x,y-1),
+        ):            
+
+            if  0 <= x2 < (len(floor)) and \
+                0 <= y2 < (len(floor[0])) and \
+                floor[x2][y2] not in walls and \
+                (x2, y2) not in seen:
+                queue.append(path + [(x2, y2)])
+                seen.add((x2, y2))
+
+        num_loops += 1
+        if to_draw and num_loops % 100 == 0:
+            update_screen(floor, highlight_tiles=[start_xy] + goals_xys + path, secondary_highlight_tiles=list(seen))
